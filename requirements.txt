@@ -1,3 +1,4 @@
 shwarsutils
 pandas
 Pillow
+pyTelegramBotAPI
