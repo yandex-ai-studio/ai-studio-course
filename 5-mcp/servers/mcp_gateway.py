@@ -213,7 +213,7 @@ def _run_server(
     try:
         mcp_instance.settings.host = host
         mcp_instance.settings.port = port
-        mcp_instance.run(transport="streamable-http")
+        mcp_instance.run(transport="sse")
     except Exception as exc:
         print(f"❌ Ошибка в сервере {server_name} (порт {port}): {exc}")
 
