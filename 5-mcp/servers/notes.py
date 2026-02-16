@@ -13,7 +13,6 @@ mcp = FastMCP("PersonalNotes", host=NOTES_HOST, port=NOTES_PORT)
 NOTES_BY_ID: dict[int, dict] = {}
 NEXT_ID = 1
 
-
 @mcp.tool(description="Добавить заметку в блокнот")
 def add_note(
     title: str,
@@ -205,10 +204,5 @@ def move_note(note_id: int, to_notebook: str) -> dict:
     note["notebook"] = to_notebook
     return note
 
-
-def main() -> None:
-    mcp.run(transport="streamable-http")
-
-
 if __name__ == "__main__":
-    main()
+    mcp.run(transport="sse")
