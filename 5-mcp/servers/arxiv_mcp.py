@@ -13,12 +13,18 @@ MCP-сервер для поиска и получения информации 
     - Замените host="127.0.0.1" на "0.0.0.0" для внешнего доступа
 """
 
+import os
+
 import requests
 import feedparser
 from mcp.server.fastmcp import FastMCP
 
+# Сетевые настройки сервера (совместимо с текущим FastMCP API)
+ARXIV_HOST = os.getenv("ARXIV_HOST", "0.0.0.0")
+ARXIV_PORT = int(os.getenv("ARXIV_PORT", "8000"))
+
 # Создаём MCP сервер
-mcp = FastMCP("ArxivResearch")
+mcp = FastMCP("ArxivResearch", host=ARXIV_HOST, port=ARXIV_PORT)
 
 # Базовый URL для arXiv API
 ARXIV_API_URL = "http://export.arxiv.org/api/query"
@@ -209,7 +215,7 @@ def search_recent(topic: str, max_results: int = 5) -> str:
 
 if __name__ == "__main__":
     print("📚 Запуск arXiv MCP Server...")
-    print("📡 Сервер доступен по адресу: http://localhost:8000/sse")
+    print(f"📡 Сервер доступен по адресу: http://{ARXIV_HOST}:{ARXIV_PORT}/sse")
     print("⚠️  Для остановки нажмите Ctrl+C")
     print("")
     print("Доступные инструменты:")
@@ -219,9 +225,5 @@ if __name__ == "__main__":
     print("  • search_recent(topic) — недавние статьи")
     
     # SSE транспорт для совместимости с Responses API
-    mcp.run(
-        transport="sse",
-        host="0.0.0.0",  # Для доступа извне
-        port=8000
-    )
+    mcp.run(transport="sse")
 

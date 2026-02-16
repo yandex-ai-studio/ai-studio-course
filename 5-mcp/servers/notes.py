@@ -5,7 +5,10 @@ from datetime import datetime, timezone
 
 from mcp.server.fastmcp import FastMCP
 
-mcp = FastMCP("MCP-сервер для персональных заметок")
+NOTES_HOST = os.getenv("NOTES_HOST", "0.0.0.0")
+NOTES_PORT = int(os.getenv("NOTES_PORT", "8000"))
+
+mcp = FastMCP("PersonalNotes", host=NOTES_HOST, port=NOTES_PORT)
 
 NOTES_BY_ID: dict[int, dict] = {}
 NEXT_ID = 1
@@ -204,9 +207,7 @@ def move_note(note_id: int, to_notebook: str) -> dict:
 
 
 def main() -> None:
-    host = os.getenv("NOTES_HOST", "0.0.0.0")
-    port = int(os.getenv("NOTES_PORT", "8000"))
-    mcp.run(transport="streamable-http", host=host, port=port)
+    mcp.run(transport="streamable-http")
 
 
 if __name__ == "__main__":

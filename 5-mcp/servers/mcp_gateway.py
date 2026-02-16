@@ -27,8 +27,10 @@ from types import ModuleType
 from mcp.server.fastmcp import FastMCP
 
 GATEWAY_FILENAME = Path(__file__).name
+GATEWAY_HOST = os.getenv("GATEWAY_HOST", "0.0.0.0")
+GATEWAY_PORT = int(os.getenv("GATEWAY_PORT", "8000"))
 
-gateway = FastMCP("MCP Gateway")
+gateway = FastMCP("MCP Gateway", host=GATEWAY_HOST, port=GATEWAY_PORT)
 
 
 # ── Вспомогательные функции ──────────────────────────────────────────────
@@ -158,9 +160,7 @@ def main() -> None:
         print(f"  • {tool_name}  (из {server})")
     print()
 
-    host = os.getenv("GATEWAY_HOST", "0.0.0.0")
-    port = int(os.getenv("GATEWAY_PORT", "8000"))
-    gateway.run(transport="streamable-http", host=host, port=port)
+    gateway.run(transport="streamable-http")
 
 
 if __name__ == "__main__":

@@ -8,11 +8,17 @@ MCP-сервер для поиска препринтов на medRxiv.
 Сервер будет доступен по адресу: http://localhost:8001/sse
 """
 
+import os
+
 import requests
 from mcp.server.fastmcp import FastMCP
 
+# Сетевые настройки сервера (совместимо с текущим FastMCP API)
+MEDRXIV_HOST = os.getenv("MEDRXIV_HOST", "0.0.0.0")
+MEDRXIV_PORT = int(os.getenv("MEDRXIV_PORT", "8001"))
+
 # Создаём MCP сервер
-mcp = FastMCP("MedRxivResearch")
+mcp = FastMCP("MedRxivResearch", host=MEDRXIV_HOST, port=MEDRXIV_PORT)
 
 # API URL
 API_URL = "https://api.biorxiv.org/details/medrxiv"
@@ -51,10 +57,6 @@ def search_medrxiv(interval: str = "2024-01-01/2025-01-01", cursor: int = 0) -> 
 
 if __name__ == "__main__":
     print("🏥 Запуск medRxiv MCP Server...")
-    print("📡 Сервер доступен по адресу: http://localhost:8001/sse")
-    
-    mcp.run(
-        transport="sse",
-        host="0.0.0.0",
-        port=8001
-    )
+    print(f"📡 Сервер доступен по адресу: http://{MEDRXIV_HOST}:{MEDRXIV_PORT}/sse")
+
+    mcp.run(transport="sse")
