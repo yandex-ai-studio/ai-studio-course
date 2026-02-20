@@ -11,7 +11,7 @@ MCP-сервер для поиска препринтов на medRxiv.
 import os
 
 import requests
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 # Сетевые настройки сервера (совместимо с текущим FastMCP API)
 MEDRXIV_HOST = os.getenv("MEDRXIV_HOST", "0.0.0.0")

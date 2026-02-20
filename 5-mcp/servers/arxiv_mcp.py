@@ -11,7 +11,7 @@ import os
 
 import requests
 import feedparser
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 # Сетевые настройки сервера (совместимо с текущим FastMCP API)
 ARXIV_HOST = os.getenv("ARXIV_HOST", "0.0.0.0")

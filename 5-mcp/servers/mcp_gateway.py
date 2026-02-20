@@ -30,7 +30,7 @@ import threading
 from pathlib import Path
 from types import ModuleType
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 GATEWAY_FILENAME = Path(__file__).name
 GATEWAY_HOST = os.getenv("GATEWAY_HOST", "0.0.0.0")

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 NOTES_HOST = os.getenv("NOTES_HOST", "0.0.0.0")
 NOTES_PORT = int(os.getenv("NOTES_PORT", "8000"))
