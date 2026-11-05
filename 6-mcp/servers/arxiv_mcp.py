@@ -8,6 +8,8 @@ MCP-сервер для поиска и получения информации 
 """
 
 import os
+import re
+from datetime import date, datetime, timezone
 
 import requests
 import feedparser
@@ -32,8 +34,48 @@ FIELD_MAP = {
 }
 
 
+def _build_search_query(
+    search_query: str, date_from: str | None, date_to: str | None
+) -> str:
+    """Добавить включительный диапазон дат первой подачи (UTC)."""
+    if date_from is None and date_to is None:
+        return search_query
+
+    dates = {}
+    for name, value in (("date_from", date_from), ("date_to", date_to)):
+        if value is None:
+            continue
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+            raise ValueError(f"{name}: укажите дату в формате YYYY-MM-DD.")
+        try:
+            dates[name] = date.fromisoformat(value)
+        except ValueError:
+            raise ValueError(f"{name}: некорректная календарная дата '{value}'.") from None
+
+    start = dates.get("date_from", date(1991, 1, 1))
+    end = dates.get("date_to", datetime.now(timezone.utc).date())
+    if start > end:
+        raise ValueError(
+            f"Начало диапазона ({start.isoformat()}) не может быть позже "
+            f"конца ({end.isoformat()})."
+        )
+
+    start_formatted = start.isoformat().replace("-", "")
+    end_formatted = end.isoformat().replace("-", "")
+    return (
+        f"({search_query}) AND "
+        f"submittedDate:[{start_formatted}0000 TO {end_formatted}2359]"
+    )
+
+
 @mcp.tool()
-def search_arxiv(query: str, field: str = "all", max_results: int = 3) -> str:
+def search_arxiv(
+    query: str,
+    field: str = "all",
+    max_results: int = 3,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> str:
     """
     Поиск научных статей на arXiv по ключевым словам.
     Возвращает топ-N наиболее релевантных статей.
@@ -42,13 +84,27 @@ def search_arxiv(query: str, field: str = "all", max_results: int = 3) -> str:
         query: Поисковый запрос на английском языке. Ключевые слова через пробел.
         field: Поле для поиска: all (все поля), title (заголовок), abstract (аннотация), author (автор)
         max_results: Максимальное количество результатов (по умолчанию 3)
+        date_from: Дата первой подачи от YYYY-MM-DD включительно (UTC); без неё — с 1991-01-01, если задана date_to.
+        date_to: Дата первой подачи до YYYY-MM-DD включительно (UTC); без неё — по сегодня, если задана date_from.
+            Одинаковые границы выбирают один день. Без обеих дат фильтра нет.
     """
+    return _search_arxiv(query, field, max_results, date_from, date_to)
+
+
+def _search_arxiv(
+    query: str,
+    field: str,
+    max_results: int,
+    date_from: str | None,
+    date_to: str | None,
+) -> str:
+    """Общая реализация поиска для MCP-инструментов поиска и автора."""
     # Формируем поисковый запрос
     field_prefix = FIELD_MAP.get(field, "all")
-    
-    # Заменяем пробелы на +
-    query_formatted = query.replace(" ", "+")
-    search_query = f"{field_prefix}:{query_formatted}"
+    try:
+        search_query = _build_search_query(f"{field_prefix}:{query}", date_from, date_to)
+    except ValueError as e:
+        return f"Ошибка в параметрах поиска: {e}"
     
     # Формируем параметры запроса
     params = {
@@ -145,28 +201,47 @@ def get_paper_details(arxiv_id: str) -> str:
 
 
 @mcp.tool()
-def search_by_author(author_name: str, max_results: int = 5) -> str:
+def search_by_author(
+    author_name: str,
+    max_results: int = 5,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> str:
     """
     Поиск статей конкретного автора на arXiv.
     
     Args:
         author_name: Имя автора (например, "Hinton" или "Yann LeCun")
         max_results: Максимальное количество результатов (по умолчанию 5)
+        date_from: Дата первой подачи от YYYY-MM-DD включительно (UTC); без неё — с 1991-01-01, если задана date_to.
+        date_to: Дата первой подачи до YYYY-MM-DD включительно (UTC); без неё — по сегодня, если задана date_from.
+            Одинаковые границы выбирают один день. Без обеих дат фильтра нет.
     """
-    return search_arxiv(author_name, field="author", max_results=max_results)
+    return _search_arxiv(author_name, "author", max_results, date_from, date_to)
 
 
 @mcp.tool()
-def search_recent(topic: str, max_results: int = 5) -> str:
+def search_recent(
+    topic: str,
+    max_results: int = 5,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> str:
     """
-    Поиск недавних статей по теме, отсортированных по дате публикации.
+    Поиск недавних статей по теме, отсортированных по дате первой подачи.
+    Без дат возвращает последние статьи без ограничения давности.
     
     Args:
         topic: Тема для поиска (на английском языке)
         max_results: Максимальное количество результатов (по умолчанию 5)
+        date_from: Дата первой подачи от YYYY-MM-DD включительно (UTC); без неё — с 1991-01-01, если задана date_to.
+        date_to: Дата первой подачи до YYYY-MM-DD включительно (UTC); без неё — по сегодня, если задана date_from.
+            Одинаковые границы выбирают один день. Без обеих дат фильтра нет.
     """
-    query_formatted = topic.replace(" ", "+")
-    search_query = f"all:{query_formatted}"
+    try:
+        search_query = _build_search_query(f"all:{topic}", date_from, date_to)
+    except ValueError as e:
+        return f"Ошибка в параметрах поиска: {e}"
     
     params = {
         "search_query": search_query,
