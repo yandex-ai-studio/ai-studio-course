@@ -13,12 +13,12 @@ import os
 import requests
 from fastmcp import FastMCP
 
-# Сетевые настройки сервера (совместимо с текущим FastMCP API)
+# Сетевые настройки передаются при запуске, а не в конструктор FastMCP.
 MEDRXIV_HOST = os.getenv("MEDRXIV_HOST", "0.0.0.0")
 MEDRXIV_PORT = int(os.getenv("MEDRXIV_PORT", "8001"))
 
 # Создаём MCP сервер
-mcp = FastMCP("MedRxivResearch", host=MEDRXIV_HOST, port=MEDRXIV_PORT)
+mcp = FastMCP("MedRxivResearch")
 
 # API URL
 API_URL = "https://api.biorxiv.org/details/medrxiv"
@@ -59,4 +59,4 @@ if __name__ == "__main__":
     print("🏥 Запуск medRxiv MCP Server...")
     print(f"📡 Сервер доступен по адресу: http://{MEDRXIV_HOST}:{MEDRXIV_PORT}/sse")
 
-    mcp.run(transport="sse")
+    mcp.run(transport="sse", host=MEDRXIV_HOST, port=MEDRXIV_PORT)

@@ -15,15 +15,15 @@ import requests
 import feedparser
 from fastmcp import FastMCP
 
-# Сетевые настройки сервера (совместимо с текущим FastMCP API)
+# Сетевые настройки передаются при запуске, а не в конструктор FastMCP.
 ARXIV_HOST = os.getenv("ARXIV_HOST", "0.0.0.0")
 ARXIV_PORT = int(os.getenv("ARXIV_PORT", "8000"))
 
 # Создаём MCP сервер
-mcp = FastMCP("ArxivResearch", host=ARXIV_HOST, port=ARXIV_PORT)
+mcp = FastMCP("ArxivResearch")
 
 # Базовый URL для arXiv API
-ARXIV_API_URL = "http://export.arxiv.org/api/query"
+ARXIV_API_URL = "https://export.arxiv.org/api/query"
 
 # Маппинг полей для поиска
 FIELD_MAP = {
@@ -294,5 +294,5 @@ if __name__ == "__main__":
     print("  • search_recent(topic) — недавние статьи")
     
     # SSE транспорт для совместимости с Responses API
-    mcp.run(transport="sse")
+    mcp.run(transport="sse", host=ARXIV_HOST, port=ARXIV_PORT)
 

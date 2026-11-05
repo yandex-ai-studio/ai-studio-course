@@ -8,7 +8,7 @@ from fastmcp import FastMCP
 NOTES_HOST = os.getenv("NOTES_HOST", "0.0.0.0")
 NOTES_PORT = int(os.getenv("NOTES_PORT", "8000"))
 
-mcp = FastMCP("PersonalNotes", host=NOTES_HOST, port=NOTES_PORT)
+mcp = FastMCP("PersonalNotes")
 
 NOTES_BY_ID: dict[int, dict] = {}
 NEXT_ID = 1
@@ -205,4 +205,4 @@ def move_note(note_id: int, to_notebook: str) -> dict:
     return note
 
 if __name__ == "__main__":
-    mcp.run(transport="sse")
+    mcp.run(transport="sse", host=NOTES_HOST, port=NOTES_PORT)

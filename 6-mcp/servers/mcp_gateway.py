@@ -21,6 +21,7 @@ MCP Gateway — объединённый MCP-сервер с двумя режи
 from __future__ import annotations
 
 import argparse
+import asyncio
 import importlib
 import inspect
 import os
@@ -31,6 +32,7 @@ from pathlib import Path
 from types import ModuleType
 
 from fastmcp import FastMCP
+from fastmcp.tools import Tool
 
 GATEWAY_FILENAME = Path(__file__).name
 GATEWAY_HOST = os.getenv("GATEWAY_HOST", "0.0.0.0")
@@ -85,34 +87,10 @@ def _derive_prefix(server_name: str) -> str:
     return prefix
 
 
-def _get_tools(mcp_instance: FastMCP) -> dict:
-    """Извлечь зарегистрированные инструменты из FastMCP-экземпляра.
-
-    Пробует несколько вариантов внутреннего API, чтобы быть
-    совместимым с разными версиями библиотеки.
-
-    Returns:
-        Словарь ``{tool_name: tool_object}``, или пустой словарь.
-    """
-    # mcp (>=1.x)  — _tool_manager._tools
-    mgr = getattr(mcp_instance, "_tool_manager", None)
-    if mgr is not None:
-        tools = getattr(mgr, "_tools", None)
-        if tools:
-            return dict(tools)
-
-    # Альтернативный вариант — _tools напрямую
-    tools = getattr(mcp_instance, "_tools", None)
-    if tools:
-        return dict(tools)
-
-    return {}
-
-
 # ── Обнаружение серверов (общее для обоих режимов) ───────────────────────
 
 
-def discover_servers() -> list[ServerInfo]:
+async def discover_servers() -> list[ServerInfo]:
     """Просканировать директорию и вернуть список обнаруженных MCP-серверов.
 
     Для каждого найденного сервера возвращает ``ServerInfo`` с
@@ -148,7 +126,7 @@ def discover_servers() -> list[ServerInfo]:
 
         server_name: str = getattr(mcp_instance, "name", module_name)
         prefix = _derive_prefix(server_name)
-        tools = _get_tools(mcp_instance)
+        tools = {tool.name: tool for tool in await mcp_instance.list_tools()}
 
         if not tools:
             print(f"ℹ️  {py_file.name} ({server_name}): инструменты не найдены")
@@ -170,20 +148,18 @@ def discover_servers() -> list[ServerInfo]:
 # ── Режим combined ───────────────────────────────────────────────────────
 
 
-def run_combined(servers: list[ServerInfo]) -> None:
-    """Запустить один объединённый сервер со всеми инструментами.
+def create_combined(servers: list[ServerInfo]) -> FastMCP:
+    """Создать один объединённый сервер со всеми инструментами.
 
     Каждый инструмент получает префикс ``<server>__<tool>`` и
     указание источника в описании.
     """
-    combined = FastMCP("MCP Gateway", host=GATEWAY_HOST, port=GATEWAY_PORT)
-    registered: list[tuple[str, str]] = []
+    combined = FastMCP("MCP Gateway")
 
     for srv in servers:
         for tool_name, tool_obj in srv.tools.items():
             prefixed_name = f"{srv.prefix}__{tool_name}"
 
-            fn = getattr(tool_obj, "fn", tool_obj)
             description = getattr(tool_obj, "description", "") or ""
             full_description = (
                 f"[{srv.server_name}] {description}"
@@ -191,16 +167,28 @@ def run_combined(servers: list[ServerInfo]) -> None:
                 else f"[{srv.server_name}]"
             )
 
-            combined.tool(name=prefixed_name, description=full_description)(fn)
-            registered.append((prefixed_name, srv.server_name))
+            combined.add_tool(Tool.from_tool(
+                tool_obj, name=prefixed_name, description=full_description,
+            ))
+
+    return combined
+
+
+def run_combined(servers: list[ServerInfo]) -> None:
+    """Запустить объединённый сервер через Streamable HTTP (/mcp)."""
+    combined = create_combined(servers)
+    registered = [
+        (f"{srv.prefix}__{name}", srv.server_name)
+        for srv in servers for name in srv.tools
+    ]
 
     print("🚀 Запуск MCP Gateway (режим: combined)...")
     print(f"📦 Зарегистрировано инструментов: {len(registered)}\n")
     for tool_name, server in registered:
         print(f"  • {tool_name}  (из {server})")
-    print(f"\n🌐 http://{GATEWAY_HOST}:{GATEWAY_PORT}\n")
+    print(f"\n🌐 http://{GATEWAY_HOST}:{GATEWAY_PORT}/mcp\n")
 
-    combined.run(transport="streamable-http")
+    combined.run(transport="http", host=GATEWAY_HOST, port=GATEWAY_PORT)
 
 
 # ── Режим multi ──────────────────────────────────────────────────────────
@@ -211,9 +199,7 @@ def _run_server(
 ) -> None:
     """Запустить один MCP-сервер (вызывается в отдельном потоке)."""
     try:
-        mcp_instance.settings.host = host
-        mcp_instance.settings.port = port
-        mcp_instance.run(transport="sse")
+        mcp_instance.run(transport="sse", host=host, port=port)
     except Exception as exc:
         print(f"❌ Ошибка в сервере {server_name} (порт {port}): {exc}")
 
@@ -270,7 +256,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    servers = discover_servers()
+    servers = asyncio.run(discover_servers())
 
     if not servers:
         print("❌ Ни одного MCP-сервера не найдено.")
